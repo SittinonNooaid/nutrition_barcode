@@ -13,6 +13,162 @@ const COLORS = {
   gray: "bg-gray-200"
 };
 
+// #region Ingredients Analysis Helper Functions
+function parseIngredients(ingredientsText) {
+  if (!ingredientsText || typeof ingredientsText !== 'string') return [];
+  
+  // Remove common prefixes and clean up
+  let text = ingredientsText
+    .toLowerCase()
+    .replace(/^ingredients?[:\s]*/i, '')
+    .replace(/\(.*?\)/g, '') // Remove parentheses content
+    .trim();
+  
+  // Split by common delimiters
+  const ingredients = text
+    .split(/[,;，；]/)
+    .map(ing => ing.trim())
+    .filter(ing => ing.length > 0)
+    .map(ing => ing.replace(/^\d+[\.\)]\s*/, '').trim()); // Remove numbered prefixes
+  
+  return ingredients;
+}
+
+function detectAllergens(ingredients) {
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:37',message:'detectAllergens entry',data:{ingredients:ingredients,ingredientsType:typeof ingredients,isArray:Array.isArray(ingredients)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  
+  if (!Array.isArray(ingredients)) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:37',message:'detectAllergens invalid input',data:{ingredients:ingredients,ingredientsType:typeof ingredients},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    return [];
+  }
+  
+  const allergenKeywords = {
+    'milk': ['milk', 'dairy', 'lactose', 'whey', 'casein', 'butter', 'cheese', 'cream', 'นม', 'เนย', 'ชีส'],
+    'egg': ['egg', 'albumin', 'lecithin', 'mayonnaise', 'ไข่', 'เลซิติน'],
+    'peanuts': ['peanut', 'groundnut', 'arachis', 'ถั่วลิสง'],
+    'tree nuts': ['almond', 'walnut', 'cashew', 'hazelnut', 'pistachio', 'pecan', 'macadamia', 'brazil nut', 'nut', 'ถั่ว', 'อัลมอนด์', 'วอลนัท'],
+    'soy': ['soy', 'soya', 'tofu', 'tempeh', 'miso', 'edamame', 'ถั่วเหลือง'],
+    'gluten': ['wheat', 'gluten', 'barley', 'rye', 'oats', 'flour', 'bread', 'pasta', 'ขนมปัง', 'แป้ง', 'ข้าวสาลี'],
+    'fish': ['fish', 'tuna', 'salmon', 'sardine', 'anchovy', 'ปลา', 'ทูน่า'],
+    'shellfish': ['shrimp', 'prawn', 'crab', 'lobster', 'mussel', 'oyster', 'shellfish', 'crustacean', 'กุ้ง', 'ปู'],
+    'sesame': ['sesame', 'tahini', 'งา']
+  };
+  
+  const detected = [];
+  const ingredientsLower = ingredients.map(ing => String(ing || '').toLowerCase());
+  
+  for (const [allergen, keywords] of Object.entries(allergenKeywords)) {
+    const found = keywords.some(keyword => 
+      ingredientsLower.some(ing => ing.includes(keyword.toLowerCase()))
+    );
+    if (found) {
+      detected.push(allergen);
+    }
+  }
+  
+  return detected;
+}
+
+function detectRiskTags(ingredients) {
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:65',message:'detectRiskTags entry',data:{ingredients:ingredients,ingredientsType:typeof ingredients,isArray:Array.isArray(ingredients)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
+  
+  if (!Array.isArray(ingredients)) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:65',message:'detectRiskTags invalid input',data:{ingredients:ingredients,ingredientsType:typeof ingredients},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    return [];
+  }
+  
+  const riskKeywords = {
+    'added sugar': ['sugar', 'sucrose', 'fructose', 'glucose', 'syrup', 'honey', 'molasses', 'dextrose', 'น้ำตาล', 'ไซรัป'],
+    'palm oil': ['palm oil', 'palm', 'palmitate', 'น้ำมันปาล์ม'],
+    'preservatives': ['preservative', 'sodium benzoate', 'potassium sorbate', 'bht', 'bha', 'nitrite', 'nitrate', 'วัตถุกันเสีย'],
+    'artificial sweeteners': ['aspartame', 'sucralose', 'saccharin', 'acesulfame', 'stevia', 'sweetener', 'สารให้ความหวาน']
+  };
+  
+  const detected = [];
+  const ingredientsLower = ingredients.map(ing => String(ing || '').toLowerCase());
+  
+  for (const [tag, keywords] of Object.entries(riskKeywords)) {
+    const found = keywords.some(keyword => 
+      ingredientsLower.some(ing => ing.includes(keyword.toLowerCase()))
+    );
+    if (found) {
+      detected.push(tag);
+    }
+  }
+  
+  return detected;
+}
+
+function analyzeIngredients(ingredientsText) {
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:88',message:'analyzeIngredients entry',data:{ingredientsText:ingredientsText,ingredientsTextType:typeof ingredientsText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
+  
+  try {
+    const ingredients = parseIngredients(ingredientsText);
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:88',message:'parseIngredients result',data:{ingredients:ingredients,ingredientsLength:ingredients?.length,isArray:Array.isArray(ingredients)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+    // #endregion
+    
+    const allergens = detectAllergens(ingredients);
+    const riskTags = detectRiskTags(ingredients);
+  
+  // Determine warning level
+  let warningLevel = 'low';
+  if (allergens.length > 0 || riskTags.length >= 2) {
+    warningLevel = 'high';
+  } else if (riskTags.length === 1) {
+    warningLevel = 'medium';
+  }
+  
+  // Generate summary
+  let summary = '';
+  if (allergens.length > 0) {
+    summary += `Contains ${allergens.join(', ')}. `;
+  }
+  if (riskTags.length > 0) {
+    summary += `${riskTags.length > 1 ? 'Multiple concerns' : riskTags[0]}: ${riskTags.join(', ')}.`;
+  }
+  if (!summary) {
+    summary = 'ไม่พบสารก่อภูมิแพ้หรือปัจจัยเสี่ยงที่สำคัญใดๆ';
+    // summary = 'No major allergens or risk factors detected.';
+  }
+  
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:88',message:'analyzeIngredients result',data:{ingredients:ingredients,allergens:allergens,riskTags:riskTags,warningLevel:warningLevel},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+    // #endregion
+    
+    return {
+      ingredients,
+      allergens,
+      risk_tags: riskTags,
+      warning_level: warningLevel,
+      summary: summary.trim()
+    };
+  } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:88',message:'analyzeIngredients error',data:{error:error?.message,errorStack:error?.stack,ingredientsText:ingredientsText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+    // #endregion
+    
+    return {
+      ingredients: [],
+      allergens: [],
+      risk_tags: [],
+      warning_level: 'low',
+      summary: 'Unable to analyze ingredients.'
+    };
+  }
+}
+// #endregion
+
 function uuid() {
   if (globalThis.crypto && crypto.randomUUID) return crypto.randomUUID();
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
@@ -65,6 +221,7 @@ export default function NutritionApp() {
               setFood(f);
               setPage("result");
             }}
+            onGoToSummary={() => setPage("summary")}
           />
         )}
 
@@ -91,7 +248,7 @@ export default function NutritionApp() {
   );
 }
 
-function ScanPage({ barcode, setBarcode, onResult }) {
+function ScanPage({ barcode, setBarcode, onResult, onGoToSummary }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -105,13 +262,40 @@ function ScanPage({ barcode, setBarcode, onResult }) {
       if (data.status !== 1) throw new Error();
       const p = data.product;
       const n = p.nutriments || {};
+      console.log('p', p)
+      
+      // Extract ingredients text (prefer English, fallback to any available)
+      const ingredientsText = p.ingredients_text_en || p.ingredients_text || p.ingredients_text_th || '';
+      console.log('ingredientsText',  ingredientsText)
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:265',message:'Before analyzeIngredients',data:{ingredientsText:ingredientsText,hasText:!!ingredientsText,ingredientsTextType:typeof ingredientsText,analyzeIngredientsExists:typeof analyzeIngredients==='function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+      // #endregion
+      
+      // Analyze ingredients (new feature - appended to existing data)
+      let ingredientsAnalysis = null;
+      try {
+        ingredientsAnalysis = ingredientsText ? analyzeIngredients(ingredientsText) : null;
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:268',message:'After analyzeIngredients',data:{ingredientsAnalysis:ingredientsAnalysis,hasAnalysis:!!ingredientsAnalysis},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+        // #endregion
+      } catch (err) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:268',message:'analyzeIngredients error in fetchFood',data:{error:err?.message,errorStack:err?.stack,ingredientsText:ingredientsText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+        // #endregion
+        ingredientsAnalysis = null;
+      }
+      
       onResult({
         food_name: p.product_name || "Unknown",
         calories: Math.round(n["energy-kcal_100g"] || 0),
         sugar: Math.round(n["sugars_100g"] || 0),
         fat: Math.round(n["fat_100g"] || 0),
         sodium: Math.round((n["sodium_100g"] || 0) * 1000),
-        quantity: 1
+        quantity: 1,
+        // New fields appended - ingredients analysis
+        ingredients_analysis: ingredientsAnalysis,
+        ingredients_text: ingredientsText
       });
     } catch {
       setError("ไม่พบข้อมูลสินค้า กรุณาลองใหม่อีกครั้ง");
@@ -172,6 +356,16 @@ function ScanPage({ barcode, setBarcode, onResult }) {
           </div>
         )}
       </div>
+
+
+      <button 
+        id='go-to-summary-page' 
+        onClick={onGoToSummary}
+        className="w-full bg-white border-2 border-gray-300 text-gray-700 py-4 rounded-2xl font-semibold text-lg shadow-sm hover:shadow-md hover:border-indigo-400 hover:text-indigo-600 transform hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
+      >
+        <span>📊</span>
+        <span>ดูสรุปวันนี้</span>
+      </button>
     </div>
   );
 }
@@ -203,6 +397,105 @@ function ResultPage({ food, onAdd, onBack }) {
           <Stat label="โซเดียม" value={food.sodium} unit="mg" color={score.sodium} icon="🧂" />
         </div>
       </div>
+
+      {/* Ingredients Analysis & Allergen Warning - New Feature */}
+      {food.ingredients_analysis && (
+        <div className="bg-white p-6 rounded-3xl shadow-xl border border-gray-100 space-y-4">
+          {/* #region agent log */}
+          {(() => {
+            fetch('http://127.0.0.1:7243/ingest/f5f854ff-ae5b-4ae8-8170-f978598887ff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NutritionApp.jsx:373',message:'ResultPage ingredients_analysis check',data:{hasAnalysis:!!food.ingredients_analysis,analysisType:typeof food.ingredients_analysis,allergens:food.ingredients_analysis?.allergens,allergensType:typeof food.ingredients_analysis?.allergens,riskTags:food.ingredients_analysis?.risk_tags,riskTagsType:typeof food.ingredients_analysis?.risk_tags,ingredients:food.ingredients_analysis?.ingredients,ingredientsType:typeof food.ingredients_analysis?.ingredients},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})}).catch(()=>{});
+            return null;
+          })()}
+          {/* #endregion */}
+          
+          <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center">
+              <span className="text-2xl">🔍</span>
+            </div>
+            <h3 className="text-xl font-bold text-gray-800">การวิเคราะห์ส่วนผสม</h3>
+          </div>
+          
+          {/* Warning Level Badge */}
+          {food.ingredients_analysis?.warning_level && food.ingredients_analysis.warning_level !== 'low' && (
+            <div className={`p-3 rounded-xl flex items-center gap-2 ${
+              food.ingredients_analysis.warning_level === 'high' 
+                ? 'bg-red-50 border-2 border-red-200' 
+                : 'bg-yellow-50 border-2 border-yellow-200'
+            }`}>
+              <span className="text-xl">
+                {food.ingredients_analysis.warning_level === 'high' ? '⚠️' : '⚡'}
+              </span>
+              <span className={`font-semibold ${
+                food.ingredients_analysis.warning_level === 'high' ? 'text-red-700' : 'text-yellow-700'
+              }`}>
+                {food.ingredients_analysis.warning_level === 'high' ? 'ระดับความเสี่ยงสูง' : 'ระดับความเสี่ยงปานกลาง'}
+              </span>
+            </div>
+          )}
+          
+          {/* Summary */}
+          {/* {food.ingredients_analysis?.summary && (
+            <div className="bg-gray-50 p-4 rounded-xl">
+              <p className="text-sm text-gray-700 leading-relaxed">{food.ingredients_analysis.summary}</p>
+            </div>
+          )} */}
+          
+          {/* Allergens */}
+          {Array.isArray(food.ingredients_analysis?.allergens) && food.ingredients_analysis.allergens.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <span>🚫</span>
+                <span>สารก่อภูมิแพ้</span>
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {food.ingredients_analysis.allergens.map((allergen, idx) => (
+                  <span 
+                    key={idx}
+                    className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-medium"
+                  >
+                    {allergen}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Risk Tags */}
+          {Array.isArray(food.ingredients_analysis?.risk_tags) && food.ingredients_analysis.risk_tags.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <span>⚡</span>
+                <span>ข้อควรระวัง</span>
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {food.ingredients_analysis.risk_tags.map((tag, idx) => (
+                  <span 
+                    key={idx}
+                    className="px-3 py-1.5 bg-orange-100 text-orange-700 rounded-lg text-xs font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Ingredients List */}
+          {Array.isArray(food.ingredients_analysis?.ingredients) && food.ingredients_analysis.ingredients.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-gray-100">
+              <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <span>📋</span>
+                <span>รายการส่วนผสม ({food.ingredients_analysis.ingredients.length} รายการ)</span>
+              </h4>
+              <div className="bg-gray-50 p-3 rounded-xl">
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  {food.ingredients_analysis.ingredients.join(', ')}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       
       <button 
         onClick={onAdd} 
